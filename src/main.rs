@@ -57,7 +57,8 @@ impl MacAddress {
     fn new() -> MacAddress {
         let mut octets = [0; 6];
         rand::thread_rng().fill_bytes(&mut octets);
-        octets[0] &= 0b111_111_00; // default MAC set to global and unicast
+        octets[0] &= 0xfc; // default MAC set to unicast 0b111_111_00
+        octets[0] |= 0x2; // default MAC set to local binary 0b000_000_10
         MacAddress(octets)
     }
     fn is_local(&self) -> bool {
