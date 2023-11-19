@@ -15,10 +15,10 @@ struct Args {
     name_of_interface: String,
     /// Make the MAC Address Unicast or Multicast. Default Unicast
     #[arg(short)]
-    unicast: bool,
+    multicast: bool,
     /// Make the MAC Address Local default Universal. Default Universal
     #[arg(short)]
-    local: bool,
+    universal: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -61,34 +61,26 @@ impl MacAddress {
         octets[0] |= 0x2; // default MAC set to local binary 0b000_000_10
         MacAddress(octets)
     }
-    fn is_local(&self) -> bool {
-        self.0[0] & 0b000_000_10 == 0b000_000_10
+    fn set_universal(&mut self) {
+        self.0[0] ^= 0b000_000_10;
     }
-    fn is_unicast(&self) -> bool {
-        self.0[0] & 0b000_000_01 == 0b000_000_01
-    }
-    fn set_local(&mut self) -> [u8; 6] {
-        self.0[0] &= 0b000_000_10;
-        self.0
-    }
-    fn set_unicast(&mut self) -> [u8; 6] {
-        self.0[0] &= 0b000_000_01;
-        self.0
+    fn set_multicast(&mut self) {
+        self.0[0] |= 0b000_000_01;
     }
 }
 
 fn main() {
     let cli = Args::parse();
     let name_of_iterface = cli.name_of_interface;
-    let unicast = cli.unicast;
-    let local = cli.local;
+    let multicast = cli.multicast;
+    let universal = cli.universal;
     let mut mac_add = MacAddress::new();
 
-    if unicast == true {
-        mac_add.set_unicast();
+    if multicast == true {
+        mac_add.set_multicast();
     }
-    if local == true {
-        mac_add.set_local();
+    if universal == true {
+        mac_add.set_universal();
     }
     // create socket for communicating between process and system network interface
     let res = unsafe { libc::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) };
@@ -103,4 +95,36 @@ fn main() {
         .expect("Unable to set the requested MAC address");
 
     println!("New MAC address assign: {}", mac_add);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_mac_add() {
+        let add = MacAddress::new();
+        let binary_representation = format!("{:08b}", add.0[0]);
+        // check if its unicast
+        assert_eq!(binary_representation.chars().nth(7).unwrap(), '0');
+        // check if its local
+        assert_eq!(binary_representation.chars().nth(6).unwrap(), '1');
+    }
+    #[test]
+    fn new_mac_make_universal() {
+        let mut add = MacAddress::new();
+        add.set_universal();
+        let binary_representation = format!("{:08b}", add.0[0]);
+        // check if its universal
+        assert_eq!(binary_representation.chars().nth(6).unwrap(), '0');
+    }
+
+    #[test]
+    fn new_mac_make_multicast() {
+        let mut add = MacAddress::new();
+        add.set_multicast();
+        let binary_representation = format!("{:08b}", add.0[0]);
+        // check if its multicast
+        assert_eq!(binary_representation.chars().nth(7).unwrap(), '1');
+    }
 }
